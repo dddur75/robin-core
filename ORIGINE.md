@@ -99,3 +99,31 @@ C1-bis (David, 2026-10-09 08:13, journal `dddur75/qg#42`) :
 | `tools/data-sourcing/prepare_provider_network_binding_v1.py` | `tools/data-sourcing/prepare_provider_network_binding_v1.py` | `b00377f14bbf356b3ed2ec8441edab38c47414b8b8edc7f6621a684fa266fff3` | `b00377f14bbf356b3ed2ec8441edab38c47414b8b8edc7f6621a684fa266fff3` |
 | `tools/data-sourcing/run_bounded_live_canary_v1.py` | `tools/data-sourcing/run_bounded_live_canary_v1.py` | `33d0ce9b98cca9dc1ec450dde9ba280b09cd7606adb31438665c75d74005ed95` | `33d0ce9b98cca9dc1ec450dde9ba280b09cd7606adb31438665c75d74005ed95` |
 | `tools/data-sourcing/run_first_c0_owner_pack_atomic_v1.py` | `tools/data-sourcing/run_first_c0_owner_pack_atomic_v1.py` | `c95820cd0140d14fd27bbed9dc1415c545de0029efd055be26dea5347cfee3e5` | `c95820cd0140d14fd27bbed9dc1415c545de0029efd055be26dea5347cfee3e5` |
+
+## Phase 2 — jumeau
+
+`scripts/jumeau.py`, son workflow et ses tests sont nouveaux (C2). La référence est extraite au SHA de main au moment de chaque contrôle, jamais exécutée avec le jeton. Acquisitions, Q1 JSON/CSV, Q3 exhaustif et fichiers publics sont comparés sans réseau de capture.
+
+Transport utile, lot 1 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
+
+Transport utile, lot 2 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
+
+Transport utile, lot 3 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
+
+Transport utile, lot 4 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
+
+## Phase 3 — suppression des chemins de canari et observatoire
+
+C1b : suppression du CLI historique tools/ et de ses modules predns_orchestration, official_schedule_sources, owner_review_pack, live_executor et harness avec leurs tests. Suppression de l’observatoire hors chronos_control_plane/chronos_r2, de deep_football/market_math et de leurs tests jalon12. Retrait du validateur documentaire abandonné par la spec. Les empreintes de phase 1 ci-dessus restent l’historique de la copie ; les chemins supprimés ne font plus partie du manifeste actif. Les imports/exports correspondants sont débranchés, aucun test restant n’est modifié.
+
+Le contrôle a révélé l’import dynamique live_executor dans workspace_bootstrap. Toute cette préparation du canari est retirée avec provider_network, global_claim_boundary, workspace_bootstrap, live_storage, fixture_mapping, storage et normalization et leurs tests. L’identité système du résolveur (fonction de 6 lignes à l’identique) est conservée dans reprise_collecte : seule dépendance de collecte à provider_network. Les paquets n’importent plus les canaris à leur chargement.
+
+Suppression des configs first-c0/bootstrap/observatoire et des docs de continuité non lus, ainsi que des anciennes configs schedule/established. Restent le mandat de collecte, la génération de relais, les fixtures des tests restants et le reçu historique pour les compteurs.
+
+## Phase 4a — collecte inerte
+
+Relais core dispatch seulement (C3). Contextes CLI et endpoints adaptés à core ; génération, comptabilité et tests restants inchangés. Traceur : 243 tests verts, 8 skips, zéro entrée externe ; rapport de cette phase en journal local.
+
+## Phase 4b — fraîcheur inerte
+
+Lecture seule des artefacts et des jobs de toutes les tentatives ; échecs conservés sur 24 h malgré les rejeux. Âge du créneau plafonné à 3 h (créneau de 2 h + tolérance 1 h). Aucun test restant modifié.
