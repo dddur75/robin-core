@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -63,12 +64,27 @@ def extract_bundle(data, destination):
 
 def rebuild(code, bundles, output):
     # Un processus par dépôt évite toute réutilisation du module de référence.
-    subprocess.run([sys.executable, '-I', str(Path(__file__).resolve()), '--worker',
+    result = subprocess.run([sys.executable, '-I', str(Path(__file__).resolve()), '--worker',
                     '--code', str(code), '--bundles', str(bundles), '--output', str(output)],
-                   check=True, env={key: value for key, value in os.environ.items()
+                   capture_output=True, text=True, env={key: value for key, value in os.environ.items()
                                     if key not in {'NG_ARTIFACTS_READ_TOKEN', 'GH_TOKEN',
                                                    'GITHUB_TOKEN', 'ODDS_API_KEY', 'THE_ODDS_API_KEY'}
                                     and not key.startswith('R2_')})
+    if result.returncode:
+        last = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else ''
+        code = last.rsplit(': ', 1)[-1]
+        safe_code = code if re.fullmatch(r'[A-Z][A-Z0-9_]+', code) else 'WORKER_FAILED'
+        raise ValueError(safe_code)
+
+
+def event_rows(before, after):
+    groups = {}
+    for side, rows in enumerate((before, after)):
+        for row in rows:
+            event = str(row['event_id'])
+            groups.setdefault(event, ([], []))[side].append(row)
+    for event in sorted(groups):
+        yield event, *groups[event]
 
 
 def worker(code, bundles, output):
@@ -128,12 +144,12 @@ def worker(code, bundles, output):
     with (output / 'q3.sha256').open('w') as stream:
         for previous, current in zip(view.acquisitions, view.acquisitions[1:]):
             before, after = catalog.rows(previous), catalog.rows(current)
-            for event in sorted({str(row['event_id']) for row in (*before, *after)}):
-                for selection in list_selections(before, after, event):
+            for event, prior, later in event_rows(before, after):
+                for selection in list_selections(prior, later, event):
                     chosen = Selection(event, selection['market_key'], selection['outcome'],
                                        selection['point'], selection['provider_key'],
                                        selection['settlement_period_key'], selection['sport_key'])
-                    payload = compare_selection(previous, before, current, after, chosen)
+                    payload = compare_selection(previous, prior, current, later, chosen)
                     digest = hashlib.sha256(to_json_bytes(payload)).hexdigest()
                     stream.write(json.dumps([previous.run_id, current.run_id, event, selection,
                                              digest], sort_keys=True) + '\n')
