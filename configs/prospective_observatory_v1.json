@@ -1,0 +1,233 @@
+{
+  "schema_version": "prospective-observatory-policy-v2",
+  "storage": {
+    "raw_primary": "R2",
+    "raw_namespace": "prospective-deep-data/schema-v1",
+    "metadata_and_projections": "POSTGRESQL",
+    "git_raw_payloads_allowed": 0,
+    "postgresql_payload_bodies_allowed": 0,
+    "append_only": true
+  },
+  "competition_registry": [
+    {
+      "competition": "Ligue 1",
+      "provider": "api-football",
+      "provider_id": 61,
+      "capture_profile": "FULL",
+      "odds_sport_key": "soccer_france_ligue_one"
+    },
+    {
+      "competition": "Premier League",
+      "provider": "api-football",
+      "provider_id": 39,
+      "capture_profile": "DEEP_FULL_ODDS_REDUCED",
+      "odds_sport_key": "soccer_epl"
+    },
+    {
+      "competition": "Liga",
+      "provider": "api-football",
+      "provider_id": 140,
+      "capture_profile": "DEEP_FULL_ODDS_REDUCED",
+      "odds_sport_key": "soccer_spain_la_liga"
+    },
+    {
+      "competition": "Bundesliga",
+      "provider": "api-football",
+      "provider_id": 78,
+      "capture_profile": "DEEP_FULL_ODDS_REDUCED",
+      "odds_sport_key": "soccer_germany_bundesliga"
+    },
+    {
+      "competition": "Serie A",
+      "provider": "api-football",
+      "provider_id": 135,
+      "capture_profile": "DEEP_FULL_ODDS_REDUCED",
+      "odds_sport_key": "soccer_italy_serie_a"
+    }
+  ],
+  "capture_profiles": {
+    "FULL": {
+      "families": [
+        "FIXTURE",
+        "TEAM",
+        "SQUAD",
+        "PLAYER_STATUS",
+        "INJURY",
+        "LINEUP",
+        "FORMATION",
+        "ODDS",
+        "EVENT_STATUS"
+      ],
+      "odds_windows": [
+        "J-7",
+        "J-3",
+        "J-1",
+        "H-6",
+        "H-2",
+        "NEAR_KICKOFF"
+      ]
+    },
+    "DEEP_FULL_ODDS_REDUCED": {
+      "families": [
+        "FIXTURE",
+        "TEAM",
+        "SQUAD",
+        "PLAYER_STATUS",
+        "INJURY",
+        "LINEUP",
+        "FORMATION",
+        "ODDS",
+        "EVENT_STATUS"
+      ],
+      "odds_windows": [
+        "J-1",
+        "H-2",
+        "NEAR_KICKOFF"
+      ]
+    },
+    "FIXTURE_ONLY": {
+      "families": [
+        "FIXTURE"
+      ],
+      "odds_windows": []
+    },
+    "DISABLED": {
+      "families": [],
+      "odds_windows": []
+    }
+  },
+  "fixture_registry": {
+    "horizon_days": 45,
+    "max_matchdays_per_competition": 3,
+    "resolve_season_from_provider_response": true,
+    "require_verified_phase": true,
+    "excluded_statuses": [
+      "CANC",
+      "PST",
+      "ABD"
+    ],
+    "require_reliable_utc_kickoff": true
+  },
+  "capture_windows": {
+    "policy_version": "prospective-capture-window-v2",
+    "operational_tolerance_seconds": 3600,
+    "FIXTURE": [
+      "J-21",
+      "J-14",
+      "J-7",
+      "J-3",
+      "J-1",
+      "H-6",
+      "H-2",
+      "NEAR_KICKOFF"
+    ],
+    "TEAM": [
+      "J-21",
+      "J-14",
+      "J-7",
+      "J-3",
+      "J-1",
+      "H-6",
+      "H-2",
+      "NEAR_KICKOFF"
+    ],
+    "SQUAD": [
+      "J-7",
+      "J-3",
+      "J-1"
+    ],
+    "PLAYER_STATUS": [
+      "J-7",
+      "J-3",
+      "J-1",
+      "H-6",
+      "H-2",
+      "NEAR_KICKOFF"
+    ],
+    "INJURY": [
+      "J-7",
+      "J-3",
+      "J-1",
+      "H-6",
+      "H-2",
+      "NEAR_KICKOFF"
+    ],
+    "LINEUP": [
+      "H-2",
+      "NEAR_KICKOFF"
+    ],
+    "FORMATION": [
+      "H-2",
+      "NEAR_KICKOFF"
+    ],
+    "ODDS": [
+      "J-7",
+      "J-3",
+      "J-1",
+      "H-6",
+      "H-2",
+      "NEAR_KICKOFF"
+    ],
+    "EVENT_STATUS": [
+      "J-21",
+      "J-14",
+      "J-7",
+      "J-3",
+      "J-1",
+      "H-6",
+      "H-2",
+      "NEAR_KICKOFF"
+    ]
+  },
+  "markets": [
+    "1X2",
+    "OVER_UNDER_2_5"
+  ],
+  "provider_budgets": {
+    "api_football": {
+      "per_run": 250,
+      "per_day": 800,
+      "per_competition_per_run": 80,
+      "per_competition_per_day": 240,
+      "per_season": 75000,
+      "provider_reserve": 5000
+    },
+    "odds_api": {
+      "per_run": 20,
+      "per_day": 120,
+      "per_week": 600,
+      "per_competition_per_run": 4,
+      "per_competition_per_day": 24,
+      "provider_reserve": 4000,
+      "internal_safety_reserve": 2,
+      "near_kickoff_reserve": 80,
+      "circuit_breaker_failures": 3,
+      "circuit_breaker_cooldown_minutes": 15,
+      "window_priority": [
+        "NEAR_KICKOFF",
+        "H-2",
+        "J-1",
+        "H-6",
+        "J-3",
+        "J-7"
+      ]
+    }
+  },
+  "minimum_samples": {
+    "technical_audit_complete_fixtures": 1,
+    "pipeline_validation_fixtures": 5,
+    "pipeline_validation_matchdays": 2,
+    "pipeline_validation_windows_per_critical_family": 2,
+    "descriptive_occurrences": 30,
+    "exploratory_occurrences": 80
+  },
+  "invariants": {
+    "STORAGE_PAUSED": true,
+    "P3_P4_PAUSED": true,
+    "PRODUCTION_LOCKED": true,
+    "REAL_BETS": false,
+    "NO_BET_DEFAULT": true,
+    "SOCIAL_PUBLISHING_ENABLED": false,
+    "DEMO_MODE_ENABLED": false
+  }
+}

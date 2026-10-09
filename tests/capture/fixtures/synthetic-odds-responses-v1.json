@@ -1,0 +1,175 @@
+{
+  "schema_version": "synthetic-odds-responses-v1",
+  "provenance": "ENTIRELY_SYNTHETIC_NO_PROVIDER_PAYLOAD",
+  "secret_sentinel": "ROBIN_SENTINEL_SECRET_DO_NOT_PERSIST_8675309",
+  "responses": {
+    "h2h_complete": [
+      {
+        "id": "synthetic-event-001",
+        "sport_key": "soccer_fictional_alpha",
+        "commence_time": "2026-09-01T18:00:00Z",
+        "home_team": "Northbridge Owls",
+        "away_team": "Southport Foxes",
+        "bookmakers": [
+          {
+            "key": "synthetic-book-a",
+            "markets": [
+              {
+                "key": "h2h",
+                "last_update": "2026-08-15T10:00:00Z",
+                "outcomes": [
+                  {"name": "Northbridge Owls", "price": 2.1},
+                  {"name": "Draw", "price": 3.2},
+                  {"name": "Southport Foxes", "price": 3.4}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "h2h_plus_totals": [
+      {
+        "id": "synthetic-event-001",
+        "sport_key": "soccer_fictional_alpha",
+        "commence_time": "2026-09-01T18:00:00Z",
+        "home_team": "Northbridge Owls",
+        "away_team": "Southport Foxes",
+        "bookmakers": [
+          {
+            "key": "synthetic-book-a",
+            "markets": [
+              {
+                "key": "h2h",
+                "last_update": "2026-08-15T10:00:00Z",
+                "outcomes": [
+                  {"name": "Northbridge Owls", "price": 2.1},
+                  {"name": "Draw", "price": 3.2},
+                  {"name": "Southport Foxes", "price": 3.4}
+                ]
+              },
+              {
+                "key": "totals",
+                "last_update": "2026-08-15T10:01:00Z",
+                "outcomes": [
+                  {"name": "Over", "price": 1.91, "point": 2.5},
+                  {"name": "Under", "price": 1.95, "point": 2.5}
+                ]
+              }
+            ]
+          },
+          {
+            "key": "synthetic-book-incomplete",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Northbridge Owls", "price": 2.2},
+                  {"name": "Southport Foxes", "price": 3.3}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "totals_absent": [
+      {
+        "id": "synthetic-event-002",
+        "sport_key": "soccer_fictional_alpha",
+        "commence_time": "2026-09-02T18:00:00Z",
+        "home_team": "Eastlake Ravens",
+        "away_team": "Westhaven Bears",
+        "bookmakers": [
+          {
+            "key": "synthetic-book-b",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Eastlake Ravens", "price": 1.8},
+                  {"name": "Draw", "price": 3.5},
+                  {"name": "Westhaven Bears", "price": 4.2}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "market_last_update_absent": [
+      {
+        "id": "synthetic-event-001",
+        "sport_key": "soccer_fictional_alpha",
+        "commence_time": "2026-09-01T18:00:00Z",
+        "home_team": "Northbridge Owls",
+        "away_team": "Southport Foxes",
+        "bookmakers": [
+          {
+            "key": "synthetic-book-a",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Northbridge Owls", "price": 2.1},
+                  {"name": "Draw", "price": 3.2},
+                  {"name": "Southport Foxes", "price": 3.4}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "event_duplicated": [
+      {
+        "id": "synthetic-event-001",
+        "sport_key": "soccer_fictional_alpha",
+        "commence_time": "2026-09-01T18:00:00Z",
+        "home_team": "Northbridge Owls",
+        "away_team": "Southport Foxes",
+        "bookmakers": []
+      },
+      {
+        "id": "synthetic-event-001",
+        "sport_key": "soccer_fictional-alpha",
+        "commence_time": "2026-09-01T18:00:00Z",
+        "home_team": "Northbridge Owls",
+        "away_team": "Southport Foxes",
+        "bookmakers": []
+      }
+    ],
+    "mapping_ambiguous": [
+      {
+        "id": "synthetic-event-ambiguous",
+        "sport_key": "soccer_fictional_alpha",
+        "commence_time": "2026-09-03T18:00:00Z",
+        "home_team": "Central City Kites",
+        "away_team": "Harbor Town Lynx",
+        "bookmakers": []
+      }
+    ],
+    "timestamp_invalid": [
+      {
+        "id": "synthetic-event-001",
+        "sport_key": "soccer_fictional_alpha",
+        "commence_time": "not-a-timestamp",
+        "home_team": "Northbridge Owls",
+        "away_team": "Southport Foxes",
+        "bookmakers": []
+      }
+    ],
+    "json_invalid": "[{synthetic-invalid-json]",
+    "http_non_200": {"status": 503, "payload": []},
+    "payload_too_large": "SYNTHETIC_OVERSIZED_PAYLOAD_MARKER",
+    "quota_headers_invalid": {
+      "x-requests-remaining": "not-an-integer",
+      "x-requests-used": "10",
+      "x-requests-last": "2"
+    },
+    "redirect": {
+      "status": 302,
+      "headers": {"location": "https://invalid.example/synthetic-redirect"}
+    }
+  }
+}

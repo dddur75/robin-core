@@ -1,0 +1,28 @@
+{
+  "mission_id": "ROBIN_AUTONOMOUS_LAB_TRIGGER_RECOVERY_20261005",
+  "authorized_stages": [
+    "E1",
+    "E2",
+    "E3A",
+    "E3B"
+  ],
+  "maximum_stage": "E3B",
+  "external_effects": [
+    "successor_of_trigger_recovery_manifest_b4752462dd798014b5930efca231caba36dea76e1b192b854d581fea2791d55b",
+    "github_actions_manual_bootstrap_provider_free_only",
+    "github_actions_workflow_dispatch_probe_max_2_automatic_hops",
+    "github_actions_workflow_dispatch_recurring_self_relay",
+    "github_actions_environment_robin_autonomous_relay_v1_wait_timer_60_minutes_main_only_no_secrets",
+    "github_actions_control_jobs_actions_write_without_provider_or_r2_secrets",
+    "github_actions_capture_actions_read_with_scoped_existing_secrets",
+    "github_actions_schedule_watchdog_provider_secret_r2_zero_same_relay_dispatch_max_1_if_none_active",
+    "github_actions_reuses_parent_two_hour_idempotent_slots",
+    "github_actions_duplicate_closed_slot_zero_provider_dispatch",
+    "github_actions_parent_rolling_budgets_unchanged",
+    "provider_accounting_conservative_baseline_requests_26_credits_54_no_reset"
+  ],
+  "compute_budget": 32000,
+  "time_budget": 2592000,
+  "source_hash": "1bd2073ac01f68fbaa1de9c190642245c2bf8acf7c3611f69f706159df96821d",
+  "expires_at": "2026-11-03T23:59:59Z"
+}

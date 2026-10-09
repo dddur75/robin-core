@@ -1,0 +1,29 @@
+{
+  "mission_id": "FIRST_C0_VERTICAL_V1",
+  "authorized_stages": [
+    "E1"
+  ],
+  "maximum_stage": "E1",
+  "external_effects": [
+    "git_remote_write_non_force",
+    "github_pull_request_write",
+    "github_merge_commit",
+    "github_actions_observe",
+    "local_standalone_runtime_create_after_merge",
+    "github_public_full_clone_after_merge",
+    "official_schedule_public_read_max_2_after_merge",
+    "provider_public_dns_resolution_exactly_once_after_merge",
+    "owner_review_pack_create_exactly_once_after_dns_binding",
+    "owner_authorization_promote_exactly_once_after_explicit_pack_specific_owner_decision",
+    "provider_secret_read_exactly_once_after_pack_specific_owner_authorization",
+    "provider_tcp_tls_connection_exactly_once_after_pack_specific_owner_authorization",
+    "provider_https_get_exactly_once_after_pack_specific_owner_authorization",
+    "provider_credit_consume_exactly_once_after_pack_specific_owner_authorization",
+    "local_immutable_live_capture_artifact_writes",
+    "offline_replay_from_captured_bytes"
+  ],
+  "compute_budget": 4000,
+  "time_budget": 259200,
+  "source_hash": "9015d1cd535893614917d1697d0ad5ce059bf1aed42b99140134781351744ff6",
+  "expires_at": "2026-09-04T08:08:40Z"
+}

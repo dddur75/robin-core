@@ -1,0 +1,37 @@
+{
+  "mission_id": "ROBIN_AUTONOMOUS_LAB_20261004",
+  "authorized_stages": [
+    "E1",
+    "E2",
+    "E3A",
+    "E3B"
+  ],
+  "maximum_stage": "E3B",
+  "external_effects": [
+    "git_remote_write_non_force",
+    "github_pull_request_write",
+    "github_merge_commit",
+    "github_actions_schedule_every_2_hours_minute_17",
+    "github_actions_artifact_upload_normalized_public_repository_existing_channel",
+    "github_actions_incident_annotation",
+    "provider_existing_secret_read",
+    "provider_public_dns_resolution_per_run_max_1",
+    "provider_https_get_per_slot_max_5",
+    "provider_credit_reservation_per_slot_max_10",
+    "provider_http_rolling_24h_max_140",
+    "provider_credit_rolling_24h_max_280",
+    "provider_http_rolling_30d_max_4000",
+    "provider_credit_rolling_30d_max_8000",
+    "r2_immutable_attempt_reservation_before_provider_request",
+    "r2_atomic_accounting_head_compare_and_swap",
+    "r2_immutable_raw_capture_and_exact_readback",
+    "r2_immutable_slot_report_and_exact_readback",
+    "r2_private_latest_projection",
+    "offline_replay_from_r2_readback",
+    "normalized_csv_json_html_consultable_delivery"
+  ],
+  "compute_budget": 32000,
+  "time_budget": 2592000,
+  "source_hash": "c611e5cfdb2fb6bc2b1a6238e7bc8ec94191d4841c9cad177abcf6bb8662a813",
+  "expires_at": "2026-11-03T23:59:59Z"
+}
