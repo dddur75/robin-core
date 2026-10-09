@@ -99,3 +99,15 @@ C1-bis (David, 2026-10-09 08:13, journal `dddur75/qg#42`) :
 | `tools/data-sourcing/prepare_provider_network_binding_v1.py` | `tools/data-sourcing/prepare_provider_network_binding_v1.py` | `b00377f14bbf356b3ed2ec8441edab38c47414b8b8edc7f6621a684fa266fff3` | `b00377f14bbf356b3ed2ec8441edab38c47414b8b8edc7f6621a684fa266fff3` |
 | `tools/data-sourcing/run_bounded_live_canary_v1.py` | `tools/data-sourcing/run_bounded_live_canary_v1.py` | `33d0ce9b98cca9dc1ec450dde9ba280b09cd7606adb31438665c75d74005ed95` | `33d0ce9b98cca9dc1ec450dde9ba280b09cd7606adb31438665c75d74005ed95` |
 | `tools/data-sourcing/run_first_c0_owner_pack_atomic_v1.py` | `tools/data-sourcing/run_first_c0_owner_pack_atomic_v1.py` | `c95820cd0140d14fd27bbed9dc1415c545de0029efd055be26dea5347cfee3e5` | `c95820cd0140d14fd27bbed9dc1415c545de0029efd055be26dea5347cfee3e5` |
+
+## Phase 2 — jumeau
+
+`scripts/jumeau.py`, son workflow et ses tests sont nouveaux (C2). La référence est extraite au SHA de main au moment de chaque contrôle, jamais exécutée avec le jeton. Acquisitions, Q1 JSON/CSV, Q3 exhaustif et fichiers publics sont comparés sans réseau de capture.
+
+Transport utile, lot 1 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
+
+Transport utile, lot 2 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
+
+Transport utile, lot 3 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
+
+Transport utile, lot 4 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
