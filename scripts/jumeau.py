@@ -93,8 +93,15 @@ def worker(code, bundles, output):
         to_json_bytes,
     )
     output.mkdir(parents=True)
-    sources = [validate_source_bundle(path.parent)
-               for path in bundles.rglob('public-receipt.json')]
+    sources, rejected = [], []
+    for path in sorted(bundles.rglob('public-receipt.json')):
+        try:
+            sources.append(validate_source_bundle(path.parent))
+        except BundleValidationError as error:
+            if str(error) != 'SOURCE_CARRY_FORWARD_STALE':
+                raise
+            rejected.append([path.parent.name, str(error)])
+    (output / 'rejected.json').write_text(json.dumps(rejected, sort_keys=True) + '\n')
     if not sources:
         raise ValueError('NO_ARTIFACTS')
     sources.sort(key=lambda item: (item.slot_time, int(item.delivery_run_id)))

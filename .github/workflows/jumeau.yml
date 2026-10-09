@@ -22,6 +22,9 @@ jobs:
         env:
           NG_ARTIFACTS_READ_TOKEN: ${{ secrets.NG_ARTIFACTS_READ_TOKEN }}
         run: python scripts/jumeau.py
+      - name: Résumé du contrôle
+        if: always()
+        run: cat reports/jumeau/rapport.md >> "$GITHUB_STEP_SUMMARY"
       - name: Rapport du jumeau
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

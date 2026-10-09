@@ -104,3 +104,23 @@ def test_replay_is_deduplicated_and_corruption_fails(tmp_path):
     (bundles / 'first/robin-real-data.csv').write_bytes(b'corrupted')
     with pytest.raises(Exception):
         ns['rebuild'](ROOT, bundles, tmp_path / 'bad')
+
+
+def test_stale_artifact_rejection_is_compared(tmp_path):
+    import hashlib
+    import json
+    ns = script()
+    bundles = tmp_path / 'bundles'
+    slot = datetime(2026, 10, 5, tzinfo=UTC)
+    _bundle(bundles / 'valid', run_id=101, slot=slot, price=2.0)
+    stale = _bundle(bundles / 'stale', run_id=102, slot=slot, price=2.0)
+    snapshot = json.loads((stale / 'robin-real-data.json').read_text())
+    snapshot['data_role'] = 'CARRY_FORWARD_STALE'
+    data = json.dumps(snapshot).encode()
+    (stale / 'robin-real-data.json').write_bytes(data)
+    receipt = json.loads((stale / 'public-receipt.json').read_text())
+    receipt['normalized_json_sha256'] = hashlib.sha256(data).hexdigest()
+    (stale / 'public-receipt.json').write_text(json.dumps(receipt))
+    ns['rebuild'](ROOT, bundles, tmp_path / 'result')
+    assert json.loads((tmp_path / 'result/rejected.json').read_text()) == [
+        ['stale', 'SOURCE_CARRY_FORWARD_STALE']]
