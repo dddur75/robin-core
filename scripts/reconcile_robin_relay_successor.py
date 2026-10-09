@@ -149,7 +149,7 @@ def _validate_request(
     active_prefix: str | None,
 ) -> None:
     if (
-        repository != _REPOSITORY
+        repository not in {_REPOSITORY, "dddur75/robin-core"}
         or mode not in {"probe", "collect"}
         or _GENERATION.fullmatch(generation) is None
         or _RUN_ID.fullmatch(chain_id) is None
@@ -190,10 +190,12 @@ def reconcile_successor(
         active_prefix=active_prefix,
     )
     inventory_endpoint = (
-        f"repos/{repository}/actions/workflows/{_WORKFLOW_ID}/runs"
+        f"repos/{repository}/actions/workflows/"
+        f"{'collecte.yml' if repository == 'dddur75/robin-core' else _WORKFLOW_ID}/runs"
         "?event=workflow_dispatch&per_page=100"
     )
-    dispatch_endpoint = f"repos/{repository}/actions/workflows/{_WORKFLOW_PATH}/dispatches"
+    workflow_path = "collecte.yml" if repository == "dddur75/robin-core" else _WORKFLOW_PATH
+    dispatch_endpoint = f"repos/{repository}/actions/workflows/{workflow_path}/dispatches"
     inventory = _runs(_read_json(inventory_endpoint, api=api, sleeper=sleeper))
     if active_prefix is not None and any(
         run.get("status") in _ACTIVE_STATUSES and _title(run).startswith(active_prefix)
