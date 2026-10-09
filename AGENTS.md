@@ -32,7 +32,6 @@
 <!-- QG:COMMUN:FIN -->
 
 ## Règles propres à robin-core
-
 - Mission 019 : respecter le périmètre et les livraisons de chaque phase.
 - Phase 1 : copier les fichiers à l’identique depuis `robin-stades-ng@aa92e7a`.
 - Aucun appel fournisseur ni accès R2 avant la bascule autorisée.
