@@ -123,3 +123,7 @@ Suppression des configs first-c0/bootstrap/observatoire et des docs de continuit
 ## Phase 4a — collecte inerte
 
 Relais core dispatch seulement (C3). Contextes CLI et endpoints adaptés à core ; génération, comptabilité et tests restants inchangés. Traceur : 243 tests verts, 8 skips, zéro entrée externe ; rapport de cette phase en journal local.
+
+## Phase 4b — fraîcheur inerte
+
+Lecture seule des artefacts et des jobs de toutes les tentatives ; échecs conservés sur 24 h malgré les rejeux. Âge du créneau plafonné à 3 h (créneau de 2 h + tolérance 1 h). Aucun test restant modifié.
