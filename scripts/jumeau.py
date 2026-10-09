@@ -79,6 +79,7 @@ def worker(code, bundles, output):
     sys.path.insert(0, str(code / 'src'))
     from robin.capture.real_data_explorer import (
         AtomicExplorerStore,
+        BundleValidationError,
         _source_semantic_sha256,
         validate_source_bundle,
     )
