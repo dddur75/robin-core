@@ -1,0 +1,33 @@
+{
+  "mission_id": "ROBIN_REAL_DATA_RESULT_20261003",
+  "authorized_stages": [
+    "E1",
+    "E2",
+    "E3A",
+    "E3B"
+  ],
+  "maximum_stage": "E3B",
+  "external_effects": [
+    "git_remote_write_non_force",
+    "github_pull_request_write",
+    "github_merge_commit",
+    "github_actions_observe",
+    "github_actions_workflow_dispatch_max_3_after_merge",
+    "github_actions_artifact_upload_normalized_public_repository",
+    "provider_public_dns_resolution_per_dispatch_max_1",
+    "provider_secret_read_per_dispatch_max_1",
+    "provider_https_get_successor_slot_max_15",
+    "provider_credit_reservation_successor_max_30",
+    "provider_http_cumulative_max_40_with_prior_baseline_1",
+    "provider_credit_cumulative_max_60_with_prior_reserve_4",
+    "r2_immutable_attempt_reservation_before_each_provider_request",
+    "r2_immutable_raw_capture_and_exact_readback",
+    "r2_immutable_cycle_receipt_and_final_report",
+    "offline_replay_from_r2_readback",
+    "normalized_csv_html_consultable_delivery"
+  ],
+  "compute_budget": 16000,
+  "time_budget": 28800,
+  "source_hash": "f01be9dddc7d7a098caec9fc3bf623ab2b53803ce03b6202f5b3fcdcad0ad25b",
+  "expires_at": "2026-10-06T12:03:57Z"
+}
