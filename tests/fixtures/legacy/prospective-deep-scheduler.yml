@@ -1,0 +1,910 @@
+name: "61 - Robin autonomous lab — established scheduler"
+run-name: robin-${{ inputs.mode || 'watchdog' }}-${{ inputs.origin || 'schedule' }}-${{ inputs.generation || 'none' }}-${{ inputs.chain_id || github.run_id }}-${{ inputs.sequence || '0' }}
+
+on:
+  schedule:
+    - cron: "13 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Provider-free probe or admitted recurring collection"
+        required: true
+        type: choice
+        default: probe
+        options:
+          - probe
+          - collect
+      origin:
+        description: "Manual bootstrap or automatic relay"
+        required: true
+        type: choice
+        default: bootstrap
+        options:
+          - bootstrap
+          - relay
+      generation:
+        description: "Immutable trigger-recovery manifest SHA-256"
+        required: true
+        type: string
+        default: "4c150973fc3d486e3738f80716019839ac2c4126644849d336e267e6929e6d87"
+      chain_id:
+        description: "Root GitHub run id (automatic relays only)"
+        required: true
+        type: string
+        default: "0"
+      parent_run_id:
+        description: "Direct parent GitHub run id (automatic relays only)"
+        required: true
+        type: string
+        default: "0"
+      sequence:
+        description: "Monotonic relay sequence (automatic relays only)"
+        required: true
+        type: string
+        default: "0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: >-
+    robin-autonomous-lab-20261005-${{
+      github.event_name == 'schedule' && 'seed-control' ||
+      (inputs.origin == 'bootstrap' && 'seed-control' ||
+      (inputs.origin == 'relay' && github.actor == 'github-actions[bot]' && 'relay' || github.run_id))
+    }}
+  queue: max
+
+env:
+  STORAGE_PAUSED: "true"
+  P3_P4_PAUSED: "true"
+  PRODUCTION_LOCKED: "true"
+  REAL_BETS: "false"
+  NO_BET_DEFAULT: "true"
+  PROMOTION_LOCKED: "true"
+  SOCIAL_PUBLISHING_ENABLED: "false"
+  DEMO_MODE_ENABLED: "false"
+  API_FOOTBALL_CALLS_ALLOWED: "0"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  bootstrap:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.origin == 'bootstrap' &&
+      github.ref == 'refs/heads/main' &&
+      github.run_attempt == 1
+    permissions:
+      actions: write
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Validate provider-free bootstrap and dispatch first automatic relay
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.mode }}
+          ORIGIN: ${{ inputs.origin }}
+          GENERATION: ${{ inputs.generation }}
+          CHAIN_ID: ${{ inputs.chain_id }}
+          PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+          SEQUENCE: ${{ inputs.sequence }}
+          ACTIVE_GENERATION: ${{ vars.ROBIN_AUTONOMOUS_RELAY_GENERATION }}
+          EXPECTED_GENERATION: "4c150973fc3d486e3738f80716019839ac2c4126644849d336e267e6929e6d87"
+          EXPECTED_SOURCE_SHA256: "1bd2073ac01f68fbaa1de9c190642245c2bf8acf7c3611f69f706159df96821d"
+          EXPECTED_EXPIRES_AT: "2026-11-03T23:59:59Z"
+        run: |
+          set -euo pipefail
+          umask 077
+          read_gh_json() {
+            local label="$1"
+            local endpoint="$2"
+            local payload=""
+            local attempt
+            for attempt in 1 2 3; do
+              if payload="$(timeout --kill-after=5s 20s gh api "$endpoint")" && [[ -n "$payload" ]] && jq -e . >/dev/null 2>&1 <<<"$payload"; then
+                printf '%s\n' "$payload"
+                return 0
+              fi
+              echo "GitHub API JSON read attempt $attempt/3 failed: $label" >&2
+              (( attempt == 3 )) || sleep "$attempt"
+            done
+            echo "GitHub API JSON read failed after 3 attempts: $label" >&2
+            return 1
+          }
+          validate_documentary_continuity() {
+            local base_sha="$1"
+            local head_sha="$2"
+            [[ "$base_sha" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$head_sha" =~ ^[0-9a-f]{40}$ ]]
+            git fetch --no-tags --force origin "$head_sha"
+            python -I scripts/validate_robin_documentary_continuity.py \
+              --repository . --base "$base_sha" --head "$head_sha"
+          }
+          [[ "$GITHUB_REPOSITORY" == "dddur75/robin-stades-ng" ]]
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]
+          [[ "$GITHUB_ACTOR" == "dddur75" ]]
+          [[ "$GITHUB_RUN_ATTEMPT" == "1" ]]
+          [[ "$GITHUB_WORKFLOW_REF" == "dddur75/robin-stades-ng/.github/workflows/prospective-deep-scheduler.yml@refs/heads/main" ]]
+          [[ "$MODE" == "probe" || "$MODE" == "collect" ]]
+          [[ "$ORIGIN" == "bootstrap" ]]
+          [[ "$GENERATION" == "$EXPECTED_GENERATION" ]]
+          [[ "$CHAIN_ID" == "0" && "$PARENT_RUN_ID" == "0" && "$SEQUENCE" == "0" ]]
+          [[ "$(sha256sum configs/execution/robin-autonomous-lab-trigger-recovery-v2-20261005.json | cut -d' ' -f1)" == "$EXPECTED_GENERATION" ]]
+          [[ "$(sha256sum docs/data-sourcing/ROBIN-AUTONOMOUS-LAB-TRIGGER-RECOVERY-V2-2026-10-05.md | cut -d' ' -f1)" == "$EXPECTED_SOURCE_SHA256" ]]
+          current_main="$(read_gh_json main-ref "repos/$GITHUB_REPOSITORY/git/ref/heads/main")"
+          current_main_sha="$(jq -r .object.sha <<<"$current_main")"
+          validate_documentary_continuity "$GITHUB_SHA" "$current_main_sha"
+          if [[ "$MODE" == "collect" ]]; then
+            [[ "$ACTIVE_GENERATION" == "$EXPECTED_GENERATION" ]]
+          fi
+          environment="$(read_gh_json relay-environment "repos/$GITHUB_REPOSITORY/environments/robin-autonomous-relay-v1")"
+          expected_wait="1"
+          [[ "$MODE" == "probe" ]] || expected_wait="60"
+          expiry_epoch="$(date -u -d "$EXPECTED_EXPIRES_AT" +%s)"
+          current_epoch="$(date -u +%s)"
+          required_seconds="$((2 * expected_wait * 60 + 600))"
+          if [[ "$MODE" == "collect" ]]; then
+            required_seconds="$((expected_wait * 60 + 10800))"
+          fi
+          (( current_epoch + required_seconds <= expiry_epoch ))
+          [[ "$(jq -r '[.protection_rules[].type] | sort == ["branch_policy", "wait_timer"]' <<<"$environment")" == "true" ]]
+          [[ "$(jq -r '[.protection_rules[] | select(.type == "wait_timer") | .wait_timer] | if length == 1 then .[0] else -1 end' <<<"$environment")" == "$expected_wait" ]]
+          [[ "$(jq -r '.deployment_branch_policy.protected_branches' <<<"$environment")" == "false" ]]
+          [[ "$(jq -r '.deployment_branch_policy.custom_branch_policies' <<<"$environment")" == "true" ]]
+          branch_policies="$(read_gh_json relay-branch-policies "repos/$GITHUB_REPOSITORY/environments/robin-autonomous-relay-v1/deployment-branch-policies")"
+          [[ "$(jq -r '(.total_count == 1) and ((.branch_policies | length) == 1) and ([.branch_policies[] | select(.name == "main" and .type == "branch")] | length == 1)' <<<"$branch_policies")" == "true" ]]
+          successor_title="robin-$MODE-relay-$GENERATION-$GITHUB_RUN_ID-1"
+          successor_result="$(python -I scripts/reconcile_robin_relay_successor.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --mode "$MODE" \
+            --generation "$GENERATION" \
+            --chain-id "$GITHUB_RUN_ID" \
+            --parent-run-id "$GITHUB_RUN_ID" \
+            --sequence 1 \
+            --successor-title "$successor_title" \
+            --active-prefix "robin-$MODE-relay-$GENERATION-")"
+          [[ "$(jq -r .skipped_active <<<"$successor_result")" == "false" ]] || exit 0
+          successor="$(jq -c .successor <<<"$successor_result")"
+          [[ "$(jq -r .workflow_id <<<"$successor")" == "321915839" ]]
+          [[ "$(jq -r .event <<<"$successor")" == "workflow_dispatch" ]]
+          [[ "$(jq -r .head_branch <<<"$successor")" == "main" ]]
+          [[ "$(jq -r .run_attempt <<<"$successor")" == "1" ]]
+          [[ "$(jq -r .actor.login <<<"$successor")" == "github-actions[bot]" ]]
+          successor_sha="$(jq -r .head_sha <<<"$successor")"
+          validate_documentary_continuity "$GITHUB_SHA" "$successor_sha"
+
+  watchdog:
+    if: >-
+      github.event_name == 'schedule' &&
+      github.ref == 'refs/heads/main' &&
+      github.run_attempt == 1
+    permissions:
+      actions: write
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Restart a missing relay without touching provider or R2
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTIVE_GENERATION: ${{ vars.ROBIN_AUTONOMOUS_RELAY_GENERATION }}
+          EXPECTED_GENERATION: "4c150973fc3d486e3738f80716019839ac2c4126644849d336e267e6929e6d87"
+          EXPECTED_EXPIRES_AT: "2026-11-03T23:59:59Z"
+        run: |
+          set -euo pipefail
+          read_gh_json() {
+            local label="$1"
+            local endpoint="$2"
+            local payload=""
+            local attempt
+            for attempt in 1 2 3; do
+              if payload="$(timeout --kill-after=5s 20s gh api "$endpoint")" && [[ -n "$payload" ]] && jq -e . >/dev/null 2>&1 <<<"$payload"; then
+                printf '%s\n' "$payload"
+                return 0
+              fi
+              echo "GitHub API JSON read attempt $attempt/3 failed: $label" >&2
+              (( attempt == 3 )) || sleep "$attempt"
+            done
+            echo "GitHub API JSON read failed after 3 attempts: $label" >&2
+            return 1
+          }
+          validate_documentary_continuity() {
+            local base_sha="$1"
+            local head_sha="$2"
+            [[ "$base_sha" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$head_sha" =~ ^[0-9a-f]{40}$ ]]
+            git fetch --no-tags --force origin "$head_sha"
+            python -I scripts/validate_robin_documentary_continuity.py \
+              --repository . --base "$base_sha" --head "$head_sha"
+          }
+          [[ "$GITHUB_REPOSITORY" == "dddur75/robin-stades-ng" ]]
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$GITHUB_EVENT_NAME" == "schedule" ]]
+          [[ "$GITHUB_RUN_ATTEMPT" == "1" ]]
+          [[ "$GITHUB_WORKFLOW_REF" == "dddur75/robin-stades-ng/.github/workflows/prospective-deep-scheduler.yml@refs/heads/main" ]]
+          [[ "$ACTIVE_GENERATION" == "$EXPECTED_GENERATION" ]] || exit 0
+          current_main="$(read_gh_json main-ref "repos/$GITHUB_REPOSITORY/git/ref/heads/main")"
+          current_main_sha="$(jq -r .object.sha <<<"$current_main")"
+          validate_documentary_continuity "$GITHUB_SHA" "$current_main_sha"
+          expiry_epoch="$(date -u -d "$EXPECTED_EXPIRES_AT" +%s)"
+          current_epoch="$(date -u +%s)"
+          (( current_epoch + 60 * 60 + 10800 <= expiry_epoch )) || exit 0
+          environment="$(read_gh_json relay-environment "repos/$GITHUB_REPOSITORY/environments/robin-autonomous-relay-v1")"
+          [[ "$(jq -r '[.protection_rules[].type] | sort == ["branch_policy", "wait_timer"]' <<<"$environment")" == "true" ]]
+          [[ "$(jq -r '[.protection_rules[] | select(.type == "wait_timer") | .wait_timer] | if length == 1 then .[0] else -1 end' <<<"$environment")" == "60" ]]
+          [[ "$(jq -r '.deployment_branch_policy.protected_branches' <<<"$environment")" == "false" ]]
+          [[ "$(jq -r '.deployment_branch_policy.custom_branch_policies' <<<"$environment")" == "true" ]]
+          branch_policies="$(read_gh_json relay-branch-policies "repos/$GITHUB_REPOSITORY/environments/robin-autonomous-relay-v1/deployment-branch-policies")"
+          [[ "$(jq -r '(.total_count == 1) and ((.branch_policies | length) == 1) and ([.branch_policies[] | select(.name == "main" and .type == "branch")] | length == 1)' <<<"$branch_policies")" == "true" ]]
+          successor_title="robin-collect-relay-$EXPECTED_GENERATION-$GITHUB_RUN_ID-1"
+          successor_result="$(python -I scripts/reconcile_robin_relay_successor.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --mode collect \
+            --generation "$EXPECTED_GENERATION" \
+            --chain-id "$GITHUB_RUN_ID" \
+            --parent-run-id "$GITHUB_RUN_ID" \
+            --sequence 1 \
+            --successor-title "$successor_title" \
+            --active-prefix "robin-collect-relay-$EXPECTED_GENERATION-")"
+          [[ "$(jq -r .skipped_active <<<"$successor_result")" == "false" ]] || exit 0
+          successor="$(jq -c .successor <<<"$successor_result")"
+          [[ "$(jq -r .workflow_id <<<"$successor")" == "321915839" ]]
+          [[ "$(jq -r .event <<<"$successor")" == "workflow_dispatch" ]]
+          [[ "$(jq -r .head_branch <<<"$successor")" == "main" ]]
+          [[ "$(jq -r .run_attempt <<<"$successor")" == "1" ]]
+          [[ "$(jq -r .actor.login <<<"$successor")" == "github-actions[bot]" ]]
+          successor_sha="$(jq -r .head_sha <<<"$successor")"
+          validate_documentary_continuity "$GITHUB_SHA" "$successor_sha"
+
+  relay:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.origin == 'relay' &&
+      github.actor == 'github-actions[bot]' &&
+      github.ref == 'refs/heads/main' &&
+      github.run_attempt == 1
+    permissions:
+      actions: write
+      contents: read
+    environment: robin-autonomous-relay-v1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      collect: ${{ steps.relay.outputs.collect }}
+      probe_complete: ${{ steps.relay.outputs.probe_complete }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Validate automatic parent and arm successor before collection
+        id: relay
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.mode }}
+          ORIGIN: ${{ inputs.origin }}
+          GENERATION: ${{ inputs.generation }}
+          CHAIN_ID: ${{ inputs.chain_id }}
+          PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+          SEQUENCE: ${{ inputs.sequence }}
+          ACTIVE_GENERATION: ${{ vars.ROBIN_AUTONOMOUS_RELAY_GENERATION }}
+          EXPECTED_GENERATION: "4c150973fc3d486e3738f80716019839ac2c4126644849d336e267e6929e6d87"
+          EXPECTED_EXPIRES_AT: "2026-11-03T23:59:59Z"
+        run: |
+          set -euo pipefail
+          umask 077
+          read_gh_json() {
+            local label="$1"
+            local endpoint="$2"
+            local payload=""
+            local attempt
+            for attempt in 1 2 3; do
+              if payload="$(timeout --kill-after=5s 20s gh api "$endpoint")" && [[ -n "$payload" ]] && jq -e . >/dev/null 2>&1 <<<"$payload"; then
+                printf '%s\n' "$payload"
+                return 0
+              fi
+              echo "GitHub API JSON read attempt $attempt/3 failed: $label" >&2
+              (( attempt == 3 )) || sleep "$attempt"
+            done
+            echo "GitHub API JSON read failed after 3 attempts: $label" >&2
+            return 1
+          }
+          validate_documentary_continuity() {
+            local base_sha="$1"
+            local head_sha="$2"
+            [[ "$base_sha" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$head_sha" =~ ^[0-9a-f]{40}$ ]]
+            git fetch --no-tags --force origin "$head_sha"
+            python -I scripts/validate_robin_documentary_continuity.py \
+              --repository . --base "$base_sha" --head "$head_sha"
+          }
+          [[ "$GITHUB_REPOSITORY" == "dddur75/robin-stades-ng" ]]
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]
+          [[ "$GITHUB_ACTOR" == "github-actions[bot]" ]]
+          [[ "$GITHUB_RUN_ATTEMPT" == "1" ]]
+          [[ "$GITHUB_WORKFLOW_REF" == "dddur75/robin-stades-ng/.github/workflows/prospective-deep-scheduler.yml@refs/heads/main" ]]
+          [[ "$MODE" == "probe" || "$MODE" == "collect" ]]
+          [[ "$ORIGIN" == "relay" ]]
+          [[ "$GENERATION" == "$EXPECTED_GENERATION" ]]
+          [[ "$CHAIN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$PARENT_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$SEQUENCE" =~ ^[1-9][0-9]{0,9}$ ]]
+          [[ "$PARENT_RUN_ID" != "$GITHUB_RUN_ID" ]]
+          [[ "$(sha256sum configs/execution/robin-autonomous-lab-trigger-recovery-v2-20261005.json | cut -d' ' -f1)" == "$EXPECTED_GENERATION" ]]
+          current_main="$(read_gh_json main-ref "repos/$GITHUB_REPOSITORY/git/ref/heads/main")"
+          current_main_sha="$(jq -r .object.sha <<<"$current_main")"
+          validate_documentary_continuity "$GITHUB_SHA" "$current_main_sha"
+          parent="$(read_gh_json parent-run "repos/$GITHUB_REPOSITORY/actions/runs/$PARENT_RUN_ID")"
+          [[ "$(jq -r .id <<<"$parent")" == "$PARENT_RUN_ID" ]]
+          [[ "$(jq -r .workflow_id <<<"$parent")" == "321915839" ]]
+          [[ "$(jq -r .head_branch <<<"$parent")" == "main" ]]
+          parent_sha="$(jq -r .head_sha <<<"$parent")"
+          validate_documentary_continuity "$parent_sha" "$GITHUB_SHA"
+          [[ "$(jq -r .run_attempt <<<"$parent")" == "1" ]]
+          parent_event="$(jq -r .event <<<"$parent")"
+          parent_title="$(jq -r .display_title <<<"$parent")"
+          [[ "$parent_event" == "workflow_dispatch" || "$parent_event" == "schedule" ]]
+          if [[ "$SEQUENCE" == "1" ]]; then
+            [[ "$CHAIN_ID" == "$PARENT_RUN_ID" ]]
+            [[ "$(jq -r .conclusion <<<"$parent")" == "success" ]]
+            if [[ "$parent_event" == "workflow_dispatch" ]]; then
+              [[ "$parent_title" == "robin-$MODE-bootstrap-$GENERATION-0-0" ]]
+            else
+              [[ "$MODE" == "collect" ]]
+              [[ "$parent_title" == "robin-watchdog-schedule-none-$PARENT_RUN_ID-0" ]]
+            fi
+          else
+            [[ "$parent_event" == "workflow_dispatch" ]]
+            previous_sequence="$((10#$SEQUENCE - 1))"
+            [[ "$parent_title" == "robin-$MODE-relay-$GENERATION-$CHAIN_ID-$previous_sequence" ]]
+            parent_jobs="$(read_gh_json parent-jobs "repos/$GITHUB_REPOSITORY/actions/runs/$PARENT_RUN_ID/jobs?per_page=100")"
+            [[ "$(jq -r '[.jobs[] | select(.name == "relay" and .conclusion == "success")] | length' <<<"$parent_jobs")" == "1" ]]
+          fi
+          environment="$(read_gh_json relay-environment "repos/$GITHUB_REPOSITORY/environments/robin-autonomous-relay-v1")"
+          expected_wait="1"
+          [[ "$MODE" == "probe" ]] || expected_wait="60"
+          [[ "$(jq -r '[.protection_rules[].type] | sort == ["branch_policy", "wait_timer"]' <<<"$environment")" == "true" ]]
+          [[ "$(jq -r '[.protection_rules[] | select(.type == "wait_timer") | .wait_timer] | if length == 1 then .[0] else -1 end' <<<"$environment")" == "$expected_wait" ]]
+          [[ "$(jq -r '.deployment_branch_policy.protected_branches' <<<"$environment")" == "false" ]]
+          [[ "$(jq -r '.deployment_branch_policy.custom_branch_policies' <<<"$environment")" == "true" ]]
+          branch_policies="$(read_gh_json relay-branch-policies "repos/$GITHUB_REPOSITORY/environments/robin-autonomous-relay-v1/deployment-branch-policies")"
+          [[ "$(jq -r '(.total_count == 1) and ((.branch_policies | length) == 1) and ([.branch_policies[] | select(.name == "main" and .type == "branch")] | length == 1)' <<<"$branch_policies")" == "true" ]]
+          current_run="$(read_gh_json current-run "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")"
+          current_run_created_at="$(jq -r .created_at <<<"$current_run")"
+          created_epoch="$(date -u -d "$current_run_created_at" +%s)"
+          current_epoch="$(date -u +%s)"
+          (( current_epoch - created_epoch >= expected_wait * 60 ))
+          expiry_epoch="$(date -u -d "$EXPECTED_EXPIRES_AT" +%s)"
+          echo "collect=false" >> "$GITHUB_OUTPUT"
+          echo "probe_complete=false" >> "$GITHUB_OUTPUT"
+          (( current_epoch <= expiry_epoch )) || exit 0
+          if [[ "$MODE" == "collect" ]]; then
+            [[ "$ACTIVE_GENERATION" == "$EXPECTED_GENERATION" ]]
+            (( current_epoch + 10800 <= expiry_epoch )) || exit 0
+            (( current_epoch + 60 * 60 + 10800 <= expiry_epoch )) || exit 0
+          elif [[ "$SEQUENCE" == "2" ]]; then
+            echo "probe_complete=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            [[ "$SEQUENCE" == "1" ]]
+            (( current_epoch + expected_wait * 60 + 600 <= expiry_epoch ))
+          fi
+          next_sequence="$((10#$SEQUENCE + 1))"
+          successor_title="robin-$MODE-relay-$GENERATION-$CHAIN_ID-$next_sequence"
+          successor_result="$(python -I scripts/reconcile_robin_relay_successor.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --mode "$MODE" \
+            --generation "$GENERATION" \
+            --chain-id "$CHAIN_ID" \
+            --parent-run-id "$GITHUB_RUN_ID" \
+            --sequence "$next_sequence" \
+            --successor-title "$successor_title")"
+          [[ "$(jq -r .skipped_active <<<"$successor_result")" == "false" ]]
+          successor="$(jq -c .successor <<<"$successor_result")"
+          [[ "$(jq -r .workflow_id <<<"$successor")" == "321915839" ]]
+          [[ "$(jq -r .event <<<"$successor")" == "workflow_dispatch" ]]
+          [[ "$(jq -r .head_branch <<<"$successor")" == "main" ]]
+          [[ "$(jq -r .run_attempt <<<"$successor")" == "1" ]]
+          [[ "$(jq -r .actor.login <<<"$successor")" == "github-actions[bot]" ]]
+          successor_sha="$(jq -r .head_sha <<<"$successor")"
+          validate_documentary_continuity "$GITHUB_SHA" "$successor_sha"
+          latest_main="$(read_gh_json main-ref-after-successor "repos/$GITHUB_REPOSITORY/git/ref/heads/main")"
+          latest_main_sha="$(jq -r .object.sha <<<"$latest_main")"
+          validate_documentary_continuity "$GITHUB_SHA" "$latest_main_sha"
+          validate_documentary_continuity "$successor_sha" "$latest_main_sha"
+          if [[ "$MODE" == "collect" ]]; then
+            echo "collect=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish provider-free relay summary
+        shell: bash
+        env:
+          MODE: ${{ inputs.mode }}
+          CHAIN_ID: ${{ inputs.chain_id }}
+          PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+          SEQUENCE: ${{ inputs.sequence }}
+          PROBE_COMPLETE: ${{ steps.relay.outputs.probe_complete }}
+        run: |
+          {
+            echo "# Robin autonomous relay"
+            echo
+            echo "- Mode: \`$MODE\`"
+            echo "- Chain: \`$CHAIN_ID\`"
+            echo "- Parent: \`$PARENT_RUN_ID\`"
+            echo "- Sequence: \`$SEQUENCE\`"
+            echo "- Probe complete: \`$PROBE_COMPLETE\`"
+            echo "- Provider requests: \`0\` before the isolated capture job"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  capture:
+    needs: relay
+    if: >-
+      needs.relay.result == 'success' &&
+      needs.relay.outputs.collect == 'true'
+    permissions:
+      actions: read
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Verify current authority and retire every prior provider route
+        id: gate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_MANIFEST_SHA256: "98b1538384f942d54535517e445ab2e9bf347e080b7f20bc92f3bb02aaede00a"
+          EXPECTED_SOURCE_SHA256: "c611e5cfdb2fb6bc2b1a6238e7bc8ec94191d4841c9cad177abcf6bb8662a813"
+          EXPECTED_SCHEDULE_MANIFEST_SHA256: "0905b3044849b81ea0f574f066e8ae132e61f0deb5412a8a6743d2ab0c15e0bc"
+          EXPECTED_SCHEDULE_SOURCE_SHA256: "7e654d17751685b62aff5ab0a7c9d0460feaabd8b304f1ee80c5fd80596cd65c"
+          EXPECTED_ESTABLISHED_MANIFEST_SHA256: "c1e3375370f55f288aaa76a5e706939e5617a54dc61598f85a510fc9d3be14fd"
+          EXPECTED_ESTABLISHED_SOURCE_SHA256: "2cf16116c41803c3300bee2fc7cc3cc501b09fa5f80c6c27affce08589e5f84e"
+          EXPECTED_TRIGGER_MANIFEST_SHA256: "4c150973fc3d486e3738f80716019839ac2c4126644849d336e267e6929e6d87"
+          EXPECTED_TRIGGER_SOURCE_SHA256: "1bd2073ac01f68fbaa1de9c190642245c2bf8acf7c3611f69f706159df96821d"
+          ACTIVE_GENERATION: ${{ vars.ROBIN_AUTONOMOUS_RELAY_GENERATION }}
+          ROBIN_RELAY_MODE: ${{ inputs.mode }}
+          ROBIN_RELAY_ORIGIN: ${{ inputs.origin }}
+          ROBIN_RELAY_GENERATION: ${{ inputs.generation }}
+          ROBIN_RELAY_CHAIN_ID: ${{ inputs.chain_id }}
+          ROBIN_RELAY_PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+          ROBIN_RELAY_SEQUENCE: ${{ inputs.sequence }}
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$GITHUB_REPOSITORY" == "dddur75/robin-stades-ng" ]]
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]
+          [[ "$GITHUB_ACTOR" == "github-actions[bot]" ]]
+          [[ "$GITHUB_WORKFLOW_REF" == "dddur75/robin-stades-ng/.github/workflows/prospective-deep-scheduler.yml@refs/heads/main" ]]
+          [[ "$GITHUB_RUN_ATTEMPT" == "1" ]]
+          [[ "$ROBIN_RELAY_MODE" == "collect" ]]
+          [[ "$ROBIN_RELAY_ORIGIN" == "relay" ]]
+          [[ "$ROBIN_RELAY_GENERATION" == "$EXPECTED_TRIGGER_MANIFEST_SHA256" ]]
+          [[ "$ACTIVE_GENERATION" == "$EXPECTED_TRIGGER_MANIFEST_SHA256" ]]
+          [[ "$ROBIN_RELAY_CHAIN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$ROBIN_RELAY_PARENT_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$ROBIN_RELAY_SEQUENCE" =~ ^[1-9][0-9]{0,9}$ ]]
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          [[ -z "$(git status --porcelain)" ]]
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          git fetch --no-tags --force origin "$current_main_sha"
+          python -I scripts/validate_robin_documentary_continuity.py \
+            --repository . --base "$GITHUB_SHA" --head "$current_main_sha"
+          [[ "$(sha256sum configs/execution/robin-autonomous-lab-20261004.json | cut -d' ' -f1)" == "$EXPECTED_MANIFEST_SHA256" ]]
+          [[ "$(sha256sum docs/data-sourcing/ROBIN-AUTONOMOUS-LAB-2026-10-04.md | cut -d' ' -f1)" == "$EXPECTED_SOURCE_SHA256" ]]
+          [[ "$(sha256sum configs/execution/robin-autonomous-lab-schedule-reliability-20261004.json | cut -d' ' -f1)" == "$EXPECTED_SCHEDULE_MANIFEST_SHA256" ]]
+          [[ "$(sha256sum docs/data-sourcing/ROBIN-AUTONOMOUS-LAB-SCHEDULE-RELIABILITY-2026-10-04.md | cut -d' ' -f1)" == "$EXPECTED_SCHEDULE_SOURCE_SHA256" ]]
+          [[ "$(sha256sum configs/execution/robin-autonomous-lab-established-scheduler-20261004.json | cut -d' ' -f1)" == "$EXPECTED_ESTABLISHED_MANIFEST_SHA256" ]]
+          [[ "$(sha256sum docs/data-sourcing/ROBIN-AUTONOMOUS-LAB-ESTABLISHED-SCHEDULER-2026-10-04.md | cut -d' ' -f1)" == "$EXPECTED_ESTABLISHED_SOURCE_SHA256" ]]
+          [[ "$(sha256sum configs/execution/robin-autonomous-lab-trigger-recovery-v2-20261005.json | cut -d' ' -f1)" == "$EXPECTED_TRIGGER_MANIFEST_SHA256" ]]
+          [[ "$(sha256sum docs/data-sourcing/ROBIN-AUTONOMOUS-LAB-TRIGGER-RECOVERY-V2-2026-10-05.md | cut -d' ' -f1)" == "$EXPECTED_TRIGGER_SOURCE_SHA256" ]]
+          python -I - <<'PY'
+          import datetime
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          current_workflow = json.loads(
+              subprocess.run(
+                  [
+                      "gh", "api",
+                      "repos/dddur75/robin-stades-ng/actions/workflows/321915839",
+                  ],
+                  check=True,
+                  capture_output=True,
+                  text=True,
+              ).stdout
+          )
+          assert current_workflow["id"] == 321915839
+          assert current_workflow["path"] == (
+              ".github/workflows/prospective-deep-scheduler.yml"
+          )
+          assert current_workflow["state"] == "active"
+
+          expected_workflows = {
+              308531686: "03_archive.yml",
+              319598077: "collect-fixtures.yml",
+              319598078: "collect-odds.yml",
+              319598079: "daily-health.yml",
+              319598080: "post-match-settlement.yml",
+              319598083: "pre-match-shadow.yml",
+              319799017: "shadow-diagnostics.yml",
+              321915844: "prospective-odds-capture.yml",
+              345580923: "data-torrent-live-v1.yml",
+              373855898: "90-reprise-collecte-pilot.yml",
+              374107131: "91-robin-real-data-result.yml",
+              374470410: "92-robin-autonomous-lab.yml",
+          }
+          for workflow_id, filename in expected_workflows.items():
+              response = json.loads(
+                  subprocess.run(
+                      [
+                          "gh", "api",
+                          f"repos/dddur75/robin-stades-ng/actions/workflows/{workflow_id}",
+                      ],
+                      check=True,
+                      capture_output=True,
+                      text=True,
+                  ).stdout
+              )
+              assert response["id"] == workflow_id
+              assert response["path"] == f".github/workflows/{filename}"
+              assert response["state"] == "disabled_manually"
+
+          manifest_path = Path("configs/execution/robin-autonomous-lab-20261004.json")
+          source_path = Path("docs/data-sourcing/ROBIN-AUTONOMOUS-LAB-2026-10-04.md")
+          schedule_manifest_path = Path(
+              "configs/execution/robin-autonomous-lab-schedule-reliability-20261004.json"
+          )
+          schedule_source_path = Path(
+              "docs/data-sourcing/ROBIN-AUTONOMOUS-LAB-SCHEDULE-RELIABILITY-2026-10-04.md"
+          )
+          established_manifest_path = Path(
+              "configs/execution/robin-autonomous-lab-established-scheduler-20261004.json"
+          )
+          established_source_path = Path(
+              "docs/data-sourcing/ROBIN-AUTONOMOUS-LAB-ESTABLISHED-SCHEDULER-2026-10-04.md"
+          )
+          trigger_manifest_path = Path(
+              "configs/execution/robin-autonomous-lab-trigger-recovery-v2-20261005.json"
+          )
+          trigger_source_path = Path(
+              "docs/data-sourcing/ROBIN-AUTONOMOUS-LAB-TRIGGER-RECOVERY-V2-2026-10-05.md"
+          )
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          schedule_manifest = json.loads(
+              schedule_manifest_path.read_text(encoding="utf-8")
+          )
+          established_manifest = json.loads(
+              established_manifest_path.read_text(encoding="utf-8")
+          )
+          trigger_manifest = json.loads(
+              trigger_manifest_path.read_text(encoding="utf-8")
+          )
+          assert set(manifest) == {
+              "mission_id", "authorized_stages", "maximum_stage", "external_effects",
+              "compute_budget", "time_budget", "source_hash", "expires_at",
+          }
+          assert manifest["mission_id"] == "ROBIN_AUTONOMOUS_LAB_20261004"
+          assert manifest["authorized_stages"] == ["E1", "E2", "E3A", "E3B"]
+          assert manifest["maximum_stage"] == "E3B"
+          assert manifest["source_hash"] == os.environ["EXPECTED_SOURCE_SHA256"]
+          assert set(schedule_manifest) == set(manifest)
+          assert set(established_manifest) == set(manifest)
+          assert set(trigger_manifest) == set(manifest)
+          assert schedule_manifest["mission_id"] == (
+              "ROBIN_AUTONOMOUS_LAB_SCHEDULE_RELIABILITY_20261004"
+          )
+          assert schedule_manifest["authorized_stages"] == manifest["authorized_stages"]
+          assert schedule_manifest["maximum_stage"] == manifest["maximum_stage"] == "E3B"
+          assert schedule_manifest["compute_budget"] == manifest["compute_budget"]
+          assert schedule_manifest["time_budget"] == manifest["time_budget"]
+          assert schedule_manifest["expires_at"] == manifest["expires_at"]
+          assert schedule_manifest["source_hash"] == os.environ[
+              "EXPECTED_SCHEDULE_SOURCE_SHA256"
+          ]
+          assert set(schedule_manifest["external_effects"]) == {
+              "github_actions_schedule_hourly_minute_37",
+              "github_actions_schedule_reuses_parent_two_hour_idempotent_slots",
+              "github_actions_duplicate_closed_slot_zero_provider_dispatch",
+              "github_actions_parent_rolling_budgets_unchanged",
+          }
+          assert established_manifest["mission_id"] == (
+              "ROBIN_AUTONOMOUS_LAB_ESTABLISHED_SCHEDULER_20261004"
+          )
+          assert established_manifest["authorized_stages"] == manifest["authorized_stages"]
+          assert established_manifest["maximum_stage"] == manifest["maximum_stage"] == "E3B"
+          assert established_manifest["compute_budget"] == manifest["compute_budget"]
+          assert established_manifest["time_budget"] == manifest["time_budget"]
+          assert established_manifest["expires_at"] == manifest["expires_at"]
+          assert established_manifest["source_hash"] == os.environ[
+              "EXPECTED_ESTABLISHED_SOURCE_SHA256"
+          ]
+          assert set(established_manifest["external_effects"]) == {
+              "github_actions_established_workflow_id_321915839",
+              "github_actions_schedule_hourly_minute_13",
+              "github_actions_prior_workflow_id_374470410_disabled",
+              "github_actions_schedule_reuses_parent_two_hour_idempotent_slots",
+              "github_actions_parent_rolling_budgets_unchanged",
+          }
+          assert trigger_manifest["mission_id"] == (
+              "ROBIN_AUTONOMOUS_LAB_TRIGGER_RECOVERY_20261005"
+          )
+          assert trigger_manifest["authorized_stages"] == manifest["authorized_stages"]
+          assert trigger_manifest["maximum_stage"] == manifest["maximum_stage"] == "E3B"
+          assert trigger_manifest["compute_budget"] == manifest["compute_budget"]
+          assert trigger_manifest["time_budget"] == manifest["time_budget"]
+          assert trigger_manifest["expires_at"] == manifest["expires_at"]
+          assert trigger_manifest["source_hash"] == os.environ[
+              "EXPECTED_TRIGGER_SOURCE_SHA256"
+          ]
+          assert set(trigger_manifest["external_effects"]) == {
+              "successor_of_trigger_recovery_manifest_b4752462dd798014b5930efca231caba36dea76e1b192b854d581fea2791d55b",
+              "github_actions_manual_bootstrap_provider_free_only",
+              "github_actions_workflow_dispatch_probe_max_2_automatic_hops",
+              "github_actions_workflow_dispatch_recurring_self_relay",
+              "github_actions_environment_robin_autonomous_relay_v1_wait_timer_60_minutes_main_only_no_secrets",
+              "github_actions_control_jobs_actions_write_without_provider_or_r2_secrets",
+              "github_actions_capture_actions_read_with_scoped_existing_secrets",
+              "github_actions_schedule_watchdog_provider_secret_r2_zero_same_relay_dispatch_max_1_if_none_active",
+              "github_actions_reuses_parent_two_hour_idempotent_slots",
+              "github_actions_duplicate_closed_slot_zero_provider_dispatch",
+              "github_actions_parent_rolling_budgets_unchanged",
+              "provider_accounting_conservative_baseline_requests_26_credits_54_no_reset",
+          }
+          expires = datetime.datetime.fromisoformat(
+              manifest["expires_at"].replace("Z", "+00:00")
+          )
+          assert datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=3) <= expires
+          assert hashlib.sha256(manifest_path.read_bytes()).hexdigest() == os.environ[
+              "EXPECTED_MANIFEST_SHA256"
+          ]
+          assert hashlib.sha256(source_path.read_bytes()).hexdigest() == os.environ[
+              "EXPECTED_SOURCE_SHA256"
+          ]
+          assert hashlib.sha256(schedule_manifest_path.read_bytes()).hexdigest() == os.environ[
+              "EXPECTED_SCHEDULE_MANIFEST_SHA256"
+          ]
+          assert hashlib.sha256(schedule_source_path.read_bytes()).hexdigest() == os.environ[
+              "EXPECTED_SCHEDULE_SOURCE_SHA256"
+          ]
+          assert hashlib.sha256(established_manifest_path.read_bytes()).hexdigest() == os.environ[
+              "EXPECTED_ESTABLISHED_MANIFEST_SHA256"
+          ]
+          assert hashlib.sha256(established_source_path.read_bytes()).hexdigest() == os.environ[
+              "EXPECTED_ESTABLISHED_SOURCE_SHA256"
+          ]
+          assert hashlib.sha256(trigger_manifest_path.read_bytes()).hexdigest() == os.environ[
+              "EXPECTED_TRIGGER_MANIFEST_SHA256"
+          ]
+          assert hashlib.sha256(trigger_source_path.read_bytes()).hexdigest() == os.environ[
+              "EXPECTED_TRIGGER_SOURCE_SHA256"
+          ]
+          PY
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12.10"
+
+      - name: Install exact existing runtime dependencies
+        id: install
+        run: >-
+          python -I -m pip install --only-binary=:all: --require-hashes -r requirements-data-torrent.lock
+
+      - name: Revalidate documentary continuity immediately before collection
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          git fetch --no-tags --force origin "$current_main_sha"
+          python -I scripts/validate_robin_documentary_continuity.py \
+            --repository . --base "$GITHUB_SHA" --head "$current_main_sha"
+
+      - name: Prepare normalized delivery directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          install -d -m 700 "$RUNNER_TEMP/robin-autonomous-lab"
+
+      - name: Collect one admitted recurring slot
+        id: capture
+        continue-on-error: true
+        shell: bash
+        env:
+          THE_ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          ROBIN_RELAY_MODE: ${{ inputs.mode }}
+          ROBIN_RELAY_ORIGIN: ${{ inputs.origin }}
+          ROBIN_RELAY_GENERATION: ${{ inputs.generation }}
+          ROBIN_RELAY_CHAIN_ID: ${{ inputs.chain_id }}
+          ROBIN_RELAY_PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+          ROBIN_RELAY_SEQUENCE: ${{ inputs.sequence }}
+        run: |
+          set -euo pipefail
+          python -I scripts/run_recurring_real_data.py \
+            --execute ROBIN_AUTONOMOUS_LAB_20261004 \
+            --manifest configs/execution/robin-autonomous-lab-20261004.json \
+            --output-directory "$RUNNER_TEMP/robin-autonomous-lab"
+
+      - name: Validate normalized delivery and publish run summary
+        id: validate
+        if: ${{ always() && !cancelled() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I - <<'PY'
+          import csv
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "robin-autonomous-lab"
+          expected = {
+              "public-receipt.json", "robin-real-data.json",
+              "robin-real-data.csv", "robin-real-data.html",
+          }
+          descendants = list(root.rglob("*"))
+          if any(path.is_symlink() or not path.is_file() for path in descendants):
+              raise RuntimeError("RECURRING_NORMALIZED_TREE_INVALID")
+          observed = {path.relative_to(root).as_posix() for path in descendants}
+          missing = sorted(expected - observed)
+          unexpected_count = len(observed - expected)
+          if missing or unexpected_count:
+              raise RuntimeError(
+                  "RECURRING_NORMALIZED_FILE_SET_INVALID "
+                  f"missing={','.join(missing) or 'none'} "
+                  f"unexpected_count={unexpected_count}"
+              )
+          receipt = json.loads((root / "public-receipt.json").read_text(encoding="utf-8"))
+          snapshot = json.loads((root / "robin-real-data.json").read_text(encoding="utf-8"))
+          RECURRING_CLAIM_IDS = [
+              "DATA.ROBIN.AUTONOMOUS_LAB.RECURRING_CAPTURES.V1.001",
+              "DATA.ROBIN.AUTONOMOUS_LAB.RECURRING_VIEW.V1.001",
+              "GOV.ROBIN.AUTONOMOUS_LAB.RECURRING_CONSUMPTION.V1.001",
+          ]
+          SEED_CLAIM_IDS = [
+              "DATA.ROBIN.AUTONOMOUS_LAB.SEED_CAPTURES.V1.001",
+              "DATA.ROBIN.AUTONOMOUS_LAB.SEED_VIEW.V1.001",
+              "GOV.ROBIN.AUTONOMOUS_LAB.SEED_CONSUMPTION.V1.001",
+          ]
+          assert receipt["mission_id"] == "ROBIN_AUTONOMOUS_LAB_20261004"
+          assert receipt["delivery_repository_sha"] == os.environ["GITHUB_SHA"]
+          assert receipt["delivery_github_run_id"] == os.environ["GITHUB_RUN_ID"]
+          assert receipt["status"] in {
+              "REAL_DATA_COMPLETE", "REAL_DATA_PARTIAL", "REAL_DATA_FAILED"
+          }
+          if receipt["status"] in {"REAL_DATA_COMPLETE", "REAL_DATA_PARTIAL"}:
+              assert receipt["validated_capture_count"] > 0
+          assert receipt["provider_requests_new"] <= 5
+          assert receipt["provider_requests_reserved"] == 5
+          assert receipt["provider_credits_reserved"] == 10
+          assert receipt["rolling_24h_requests"] <= 140
+          assert receipt["rolling_24h_credits"] <= 280
+          assert receipt["rolling_30d_requests"] <= 4000
+          assert receipt["rolling_30d_credits"] <= 8000
+          assert isinstance(receipt["credit_bound_valid"], bool)
+          assert receipt["automatic_retries"] == 0
+          assert receipt["purchases"] == receipt["real_bets"] == 0
+          assert receipt["backfills"] == receipt["promotions"] == 0
+          assert receipt["private_report_r2_status"] == "VERIFIED"
+          assert snapshot["schema_version"] == "robin-real-data-explorer-v2"
+          assert snapshot["mission_id"] == "ROBIN_AUTONOMOUS_LAB_20261004"
+          assert len(snapshot["rows"]) == receipt["display_row_count"]
+          assert snapshot["summary"]["row_count"] == receipt["display_row_count"]
+          assert snapshot["data_role"] == receipt["display_data_role"]
+          assert snapshot["data_slot_start_utc"] == receipt["display_data_slot_start_utc"]
+          assert receipt["claim_ids"] == snapshot["claim_ids"]
+          assert receipt["claim_ids"] in [
+              RECURRING_CLAIM_IDS,
+              RECURRING_CLAIM_IDS + SEED_CLAIM_IDS,
+          ]
+          if snapshot["data_role"] == "CURRENT":
+              assert receipt["display_row_count"] == receipt["row_count"]
+          else:
+              assert snapshot["data_role"] == "CARRY_FORWARD_STALE"
+              assert snapshot["collection_health"] == "FAILED"
+              assert snapshot["freshness"]["status"] == "STALE"
+              assert snapshot["data_slot_start_utc"] < receipt["slot_start_utc"]
+              assert receipt["row_count"] == 0
+          serialized = json.dumps(snapshot, sort_keys=True)
+          assert "raw_payload_base64" not in serialized
+          assert "raw_object_key" not in serialized
+          assert '"branches"' not in serialized
+          assert receipt["normalized_json_sha256"] == hashlib.sha256(
+              (root / "robin-real-data.json").read_bytes()
+          ).hexdigest()
+          assert receipt["csv_sha256"] == hashlib.sha256(
+              (root / "robin-real-data.csv").read_bytes()
+          ).hexdigest()
+          assert receipt["html_sha256"] == hashlib.sha256(
+              (root / "robin-real-data.html").read_bytes()
+          ).hexdigest()
+          with (root / "robin-real-data.csv").open(encoding="utf-8", newline="") as stream:
+              rows = list(csv.DictReader(stream))
+          assert len(rows) == receipt["display_row_count"]
+
+          run_url = (
+              f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
+              f"/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          )
+          lines = [
+              "# Robin — laboratoire autonome",
+              "",
+              f"- Statut : `{receipt['status']}`",
+              f"- Créneau UTC : `{receipt['slot_start_utc']}`",
+              f"- Captures vérifiées : `{receipt['validated_capture_count']}/5`",
+              f"- Lignes du créneau / affichées : `{receipt['row_count']}` / `{receipt['display_row_count']}`",
+              f"- Requêtes glissantes 24 h : `{receipt['rolling_24h_requests']}/140`",
+              f"- Crédits glissants 24 h : `{receipt['rolling_24h_credits']}/280`",
+              f"- Claim IDs : `{', '.join(receipt['claim_ids'])}`",
+              f"- Run : {run_url}",
+              "",
+              "Le tableau HTML, le JSON normalisé et le CSV sont dans l’artifact de ce run. Le brut et le rapport privé restent dans R2.",
+          ]
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as stream:
+              stream.write("\n".join(lines) + "\n")
+          PY
+
+      - name: Upload consultable normalized table
+        id: upload
+        if: ${{ always() && !cancelled() && steps.validate.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: robin-autonomous-lab-${{ github.run_id }}
+          path: ${{ runner.temp }}/robin-autonomous-lab
+          if-no-files-found: error
+          include-hidden-files: false
+          retention-days: 30
+
+      - name: Preserve exact terminal outcome
+        id: terminal
+        if: ${{ always() }}
+        shell: bash
+        env:
+          CAPTURE_OUTCOME: ${{ steps.capture.outcome }}
+          VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$CAPTURE_OUTCOME" == "success" \
+             && "$VALIDATE_OUTCOME" == "success" \
+             && "$UPLOAD_OUTCOME" == "success" ]]; then
+            exit 0
+          fi
+          echo "RECURRING_DELIVERY_INCOMPLETE" >&2
+          exit 1
