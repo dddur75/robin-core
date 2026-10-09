@@ -119,3 +119,7 @@ C1b : suppression du CLI historique tools/ et de ses modules predns_orchestratio
 Le contrôle a révélé l’import dynamique live_executor dans workspace_bootstrap. Toute cette préparation du canari est retirée avec provider_network, global_claim_boundary, workspace_bootstrap, live_storage, fixture_mapping, storage et normalization et leurs tests. L’identité système du résolveur (fonction de 6 lignes à l’identique) est conservée dans reprise_collecte : seule dépendance de collecte à provider_network. Les paquets n’importent plus les canaris à leur chargement.
 
 Suppression des configs first-c0/bootstrap/observatoire et des docs de continuité non lus, ainsi que des anciennes configs schedule/established. Restent le mandat de collecte, la génération de relais, les fixtures des tests restants et le reçu historique pour les compteurs.
+
+## Phase 4a — collecte inerte
+
+Relais core dispatch seulement (C3). Contextes CLI et endpoints adaptés à core ; génération, comptabilité et tests restants inchangés. Traceur : 243 tests verts, 8 skips, zéro entrée externe ; rapport de cette phase en journal local.
