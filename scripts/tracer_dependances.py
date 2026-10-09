@@ -134,7 +134,7 @@ def main():
         lines.extend(f"- `{label(p)}`" for p in sorted(attempts))
         lines.extend(["", "## Entrées externes non autorisées", ""])
         lines.extend(f"- `{p}`" for p in sorted(external))
-        (ROOT / "DEPENDANCES.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        (ROOT / "DEPENDANCES.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
         print(f"TRACE : {len(reads)} chemins lus, {len(programs)} programmes, "
               f"{len(external)} entrées externes non autorisées ; tests={result}")
         return result or bool(external)

@@ -9954,4 +9954,3 @@ Le contrôle couvre les tests exercés ; le jumeau nécessite `--jumeau` en phas
 - `$TRACE/pytest/test_contained_command_start_f0/missing-command.exe`
 
 ## Entrées externes non autorisées
-
