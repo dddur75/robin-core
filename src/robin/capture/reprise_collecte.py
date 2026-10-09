@@ -14,6 +14,7 @@ import html
 import io
 import ipaddress
 import math
+import os
 import re
 import socket
 import time
@@ -39,11 +40,19 @@ from robin.capture.live_transport import (
     SecretReader,
     validate_provider_secret,
 )
-from robin.capture.provider_network import system_resolver_identity_v1
 from robin.prospective_observatory.chronos_control_plane import (
     ConditionalObjectStore,
     ConditionalPutOutcome,
 )
+
+
+def system_resolver_identity_v1() -> str:
+    if os.name == "nt":
+        return "WINDOWS_WINSOCK_SYSTEM_STUB_RESOLVER"
+    if os.name == "posix":
+        return "POSIX_LIBC_SYSTEM_STUB_RESOLVER"
+    return "PYTHON_SOCKET_SYSTEM_STUB_RESOLVER"
+
 
 MISSION_ID = "ROBIN_REPRISE_COLLECTE_20261002"
 MANDATE_SHA256 = "0a48756520b7f77f6c2d66d27e3b423d5f62d0468bd8b8607aa1cebf5f391d22"
