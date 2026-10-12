@@ -12,7 +12,7 @@ import sys
 import tarfile
 import tempfile
 import zipfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 REPOSITORY = 'dddur75/robin-stades-ng'
@@ -36,20 +36,52 @@ def api_json(endpoint):
     return json.loads(github(endpoint))
 
 
-def inventory():
-    artifacts, page = [], 1
+def utc_time(value):
+    try:
+        parsed = datetime.fromisoformat(value)
+        if parsed.tzinfo is None:
+            raise ValueError
+        return parsed.astimezone(UTC)
+    except (TypeError, ValueError):
+        raise ValueError('TIMESTAMP_INVALID') from None
+
+
+def inventory_snapshot():
+    artifacts, page, total, inconsistent = {}, 1, None, False
     while True:
         payload = api_json(f'actions/artifacts?per_page=100&page={page}')
-        artifacts.extend(payload['artifacts'])
-        if len(artifacts) >= payload['total_count']:
+        if total is not None and total != payload['total_count']:
+            inconsistent = True
+        total = payload['total_count']
+        for item in payload['artifacts']:
+            if item['id'] in artifacts and artifacts[item['id']] != item:
+                inconsistent = True
+            artifacts[item['id']] = item
+        # Les doublons ne comptent pas comme des artefacts supplémentaires.
+        if len(payload['artifacts']) < 100:
             break
-        if not payload['artifacts']:
-            raise ValueError('ARTIFACT_INVENTORY_INCOMPLETE')
         page += 1
-    if len({item['id'] for item in artifacts}) != len(artifacts):
-        raise ValueError('ARTIFACT_INVENTORY_DUPLICATED')
+    if len(artifacts) != total:
+        raise ValueError('ARTIFACT_INVENTORY_INCOMPLETE')
+    if inconsistent:
+        raise ValueError('ARTIFACT_INVENTORY_INCONSISTENT')
+    return [artifacts[identity] for identity in sorted(artifacts)]
+
+
+def inventory(started_at=None, since=None):
+    started_at = started_at or datetime.now(UTC)
+    for attempt in range(4):  # Une lecture initiale et au plus trois relectures.
+        try:
+            artifacts = inventory_snapshot()
+            break
+        except ValueError as error:
+            if str(error) not in {'ARTIFACT_INVENTORY_INCOMPLETE',
+                                  'ARTIFACT_INVENTORY_INCONSISTENT'} or attempt == 3:
+                raise
     return [item for item in artifacts if not item['expired']
-            and item['name'].startswith('robin-autonomous-lab-')]
+            and item['name'].startswith('robin-autonomous-lab-')
+            and utc_time(item['created_at']) < started_at
+            and (since is None or utc_time(item['created_at']) >= since)]
 
 
 def extract_bundle(data, destination):
@@ -62,10 +94,15 @@ def extract_bundle(data, destination):
             (destination / name).write_bytes(archive.read(name))
 
 
-def rebuild(code, bundles, output):
+def rebuild(code, bundles, output, since=None, until=None):
     # Un processus par dépôt évite toute réutilisation du module de référence.
-    result = subprocess.run([sys.executable, '-I', str(Path(__file__).resolve()), '--worker',
-                    '--code', str(code), '--bundles', str(bundles), '--output', str(output)],
+    command = [sys.executable, '-I', str(Path(__file__).resolve()), '--worker',
+               '--code', str(code), '--bundles', str(bundles), '--output', str(output)]
+    if since is not None:
+        command.extend(['--since', since.isoformat()])
+    if until is not None:
+        command.extend(['--until', until.isoformat()])
+    result = subprocess.run(command,
                    capture_output=True, text=True, env={key: value for key, value in os.environ.items()
                                     if key not in {'NG_ARTIFACTS_READ_TOKEN', 'GH_TOKEN',
                                                    'GITHUB_TOKEN', 'ODDS_API_KEY', 'THE_ODDS_API_KEY'}
@@ -87,7 +124,7 @@ def event_rows(before, after):
         yield event, *groups[event]
 
 
-def worker(code, bundles, output):
+def worker(code, bundles, output, since=None, until=None):
     def no_network(event, args):
         if event in {'socket.connect', 'socket.getaddrinfo', 'subprocess.Popen'}:
             raise RuntimeError('JUMEAU_NETWORK_FORBIDDEN')
@@ -112,6 +149,10 @@ def worker(code, bundles, output):
     output.mkdir(parents=True)
     sources, rejected = [], []
     for path in sorted(bundles.rglob('public-receipt.json')):
+        if since is not None:
+            slot = utc_time(json.loads(path.read_bytes())['slot_start_utc'])
+            if slot < since or (until is not None and slot >= until):
+                continue
         try:
             sources.append(validate_source_bundle(path.parent))
         except BundleValidationError as error:
@@ -173,18 +214,25 @@ def compare(reference, candidate):
 
 
 def main():
+    started_at = datetime.now(UTC)
+    since = started_at - timedelta(hours=72) if os.environ.get(
+        'GITHUB_EVENT_NAME') == 'pull_request' else None
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--worker', action='store_true')
     parser.add_argument('--code', type=Path, default=ROOT)
     parser.add_argument('--bundles', type=Path)
     parser.add_argument('--reference', type=Path)
     parser.add_argument('--output', type=Path, default=Path('reports/jumeau'))
+    parser.add_argument('--since', type=utc_time)
+    parser.add_argument('--until', type=utc_time)
     args = parser.parse_args()
     if args.worker:
-        worker(args.code, args.bundles, args.output)
+        worker(args.code, args.bundles, args.output, args.since, args.until)
         return 0
     report = {'identical': False, 'first_difference': None, 'reference_sha': None,
-              'artifact_count': 0, 'checked_at_utc': datetime.now(UTC).isoformat()}
+              'artifact_count': 0, 'checked_at_utc': started_at.isoformat(),
+              'mode': 'recent_72h' if since is not None else 'exhaustive',
+              'window_start_utc': since.isoformat() if since is not None else None}
     try:
         with tempfile.TemporaryDirectory(prefix='jumeau-') as temporary:
             workspace = Path(temporary)
@@ -199,7 +247,7 @@ def main():
                 reference = next(reference.iterdir())
             if bundles is None:
                 bundles = workspace / 'bundles'
-                artifacts = inventory()
+                artifacts = inventory(started_at, since)
                 report['artifact_count'] = len(artifacts)
                 for item in artifacts:
                     extract_bundle(github(f"actions/artifacts/{item['id']}/zip"),
@@ -207,7 +255,8 @@ def main():
             else:
                 report['artifact_count'] = len(list(bundles.rglob('public-receipt.json')))
             for name, code in [('reference', reference), ('candidate', args.code)]:
-                rebuild(code, bundles, workspace / name)
+                rebuild(code, bundles, workspace / name, since,
+                        started_at if since is not None else None)
             report['first_difference'] = compare(workspace / 'reference', workspace / 'candidate')
             report['identical'] = report['first_difference'] is None
     except Exception as error:
@@ -217,6 +266,7 @@ def main():
     (args.output / 'rapport.json').write_text(json.dumps(report, indent=2) + '\n')
     (args.output / 'rapport.md').write_text(
         '# Jumeau Robin\n\n' + ('IDENTIQUE' if report['identical'] else 'ECART')
+        + f"\n\nMode : {report['mode']} ; début de fenêtre : {report['window_start_utc']}\n"
         + f"\n\nPremier écart : {report['first_difference']}\n"
         + f"Artefacts : {report['artifact_count']} ; référence : {report['reference_sha']}\n")
     return 0 if report['identical'] else 1
