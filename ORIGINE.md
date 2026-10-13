@@ -109,3 +109,5 @@ Transport utile, lot 1 : tests/helpers extraits du fichier mixte de aa92e7a avan
 Transport utile, lot 2 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
 
 Transport utile, lot 3 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
+
+Transport utile, lot 4 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
