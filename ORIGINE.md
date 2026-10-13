@@ -105,3 +105,5 @@ C1-bis (David, 2026-10-09 08:13, journal `dddur75/qg#42`) :
 `scripts/jumeau.py`, son workflow et ses tests sont nouveaux (C2). La référence est extraite au SHA de main au moment de chaque contrôle, jamais exécutée avec le jeton. Acquisitions, Q1 JSON/CSV, Q3 exhaustif et fichiers publics sont comparés sans réseau de capture.
 
 Transport utile, lot 1 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
+
+Transport utile, lot 2 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
