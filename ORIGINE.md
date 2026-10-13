@@ -127,3 +127,7 @@ Relais core dispatch seulement (C3). Contextes CLI et endpoints adaptés à core
 ## Phase 4b — fraîcheur inerte
 
 Lecture seule des artefacts et des jobs de toutes les tentatives ; échecs conservés sur 24 h malgré les rejeux. Âge du créneau plafonné à 3 h (créneau de 2 h + tolérance 1 h). Aucun test restant modifié.
+
+## Jumeau — parcours Q3 par événement
+
+Les lignes sont partitionnées par événement, en gardant marchés, bookmakers, points et lignages. Le test nouveau compare toutes les réponses octet pour octet avec le moteur sur lignes complètes ; les tests existants restent inchangés. Erreurs des workers remontées par code stable sans stderr privé.
