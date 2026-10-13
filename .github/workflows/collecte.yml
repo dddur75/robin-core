@@ -1,6 +1,8 @@
 name: collecte
 run-name: robin-collect-${{ inputs.origin || 'bootstrap' }}-${{ inputs.generation || '4c150973fc3d486e3738f80716019839ac2c4126644849d336e267e6929e6d87' }}-${{ inputs.chain_id || '0' }}-${{ inputs.sequence || '0' }}
 on:
+  schedule:
+    - cron: '13 * * * *'
   workflow_dispatch:
     inputs:
       mode: {type: string, default: collect}
