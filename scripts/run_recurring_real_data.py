@@ -98,11 +98,15 @@ def _validate_context(
     if arguments.execute != MISSION_ID:
         raise RecurringError("RECURRING_EXECUTION_TOKEN_INVALID")
     if (
-        environment.get("GITHUB_REPOSITORY") != "dddur75/robin-stades-ng"
+        environment.get("GITHUB_REPOSITORY") not in {"dddur75/robin-stades-ng", "dddur75/robin-core"}
         or environment.get("GITHUB_REF") != "refs/heads/main"
         or environment.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
         or environment.get("GITHUB_ACTOR") != "github-actions[bot]"
-        or environment.get("GITHUB_WORKFLOW_REF") != _RELAY_WORKFLOW_REF
+        or environment.get("GITHUB_WORKFLOW_REF") != (
+            "dddur75/robin-core/.github/workflows/collecte.yml@refs/heads/main"
+            if environment.get("GITHUB_REPOSITORY") == "dddur75/robin-core"
+            else _RELAY_WORKFLOW_REF
+        )
         or environment.get("ROBIN_RELAY_MODE") != "collect"
         or environment.get("ROBIN_RELAY_ORIGIN") != "relay"
         or environment.get("ROBIN_RELAY_GENERATION") != _RELAY_GENERATION

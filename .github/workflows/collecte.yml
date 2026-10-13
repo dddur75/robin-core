@@ -1,0 +1,120 @@
+name: collecte
+run-name: robin-collect-${{ inputs.origin || 'bootstrap' }}-${{ inputs.generation || '4c150973fc3d486e3738f80716019839ac2c4126644849d336e267e6929e6d87' }}-${{ inputs.chain_id || '0' }}-${{ inputs.sequence || '0' }}
+on:
+  workflow_dispatch:
+    inputs:
+      mode: {type: string, default: collect}
+      origin: {type: choice, options: [bootstrap, relay], default: bootstrap}
+      generation: {type: string, default: '4c150973fc3d486e3738f80716019839ac2c4126644849d336e267e6929e6d87'}
+      chain_id: {type: string, default: '0'}
+      parent_run_id: {type: string, default: '0'}
+      sequence: {type: string, default: '0'}
+permissions:
+  contents: read
+  actions: write
+# C4 doit configurer cet environnement avec attente 60 minutes, branche main seulement.
+env:
+  GH_TOKEN: ${{ github.token }}
+  ACTIVE_GENERATION: ${{ vars.ROBIN_AUTONOMOUS_RELAY_GENERATION }}
+  GENERATION: ${{ inputs.generation }}
+  ORIGIN: ${{ inputs.origin || 'bootstrap' }}
+  CHAIN_ID: ${{ inputs.chain_id }}
+  PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+  SEQUENCE: ${{ inputs.sequence }}
+jobs:
+  autorisation:
+    if: github.ref == 'refs/heads/main' && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.gate.outputs.ready }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - id: gate
+        env:
+          THE_ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: python scripts/collecte_relais.py gate
+  bootstrap:
+    needs: autorisation
+    if: needs.autorisation.outputs.ready == 'true' && (inputs.origin != 'relay')
+    concurrency: {group: robin-core-bootstrap, cancel-in-progress: false}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - run: python scripts/collecte_relais.py prepare
+  relay:
+    needs: autorisation
+    if: needs.autorisation.outputs.ready == 'true' && inputs.origin == 'relay' && github.actor == 'github-actions[bot]'
+    environment: robin-autonomous-relay-v1
+    concurrency: {group: robin-core-relay, cancel-in-progress: false}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      collect: ${{ steps.arm.outputs.collect }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - id: arm
+        run: python scripts/collecte_relais.py prepare
+  collecte:
+    needs: relay
+    if: needs.relay.outputs.collect == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: {contents: read}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with: {python-version: '3.12'}
+      - run: python -m pip install pydantic==2.14.0 boto3==1.43.110
+      - name: Collecter et livrer le créneau réservé
+        env:
+          THE_ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          ROBIN_RELAY_MODE: collect
+          ROBIN_RELAY_ORIGIN: relay
+          ROBIN_RELAY_GENERATION: ${{ inputs.generation }}
+          ROBIN_RELAY_CHAIN_ID: ${{ inputs.chain_id }}
+          ROBIN_RELAY_PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+          ROBIN_RELAY_SEQUENCE: ${{ inputs.sequence }}
+          STORAGE_PAUSED: 'true'
+          P3_P4_PAUSED: 'true'
+          PRODUCTION_LOCKED: 'true'
+          REAL_BETS: 'false'
+          NO_BET_DEFAULT: 'true'
+          PROMOTION_LOCKED: 'true'
+          SOCIAL_PUBLISHING_ENABLED: 'false'
+          DEMO_MODE_ENABLED: 'false'
+          API_FOOTBALL_CALLS_ALLOWED: '0'
+        run: |
+          mkdir -p "$RUNNER_TEMP/robin-autonomous-lab"
+          python -I scripts/run_recurring_real_data.py --execute ROBIN_AUTONOMOUS_LAB_20261004 --manifest configs/execution/robin-autonomous-lab-20261004.json --output-directory "$RUNNER_TEMP/robin-autonomous-lab"
+      - name: Valider le readback et les budgets
+        run: python scripts/collecte_relais.py delivery
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: robin-autonomous-lab-${{ github.run_id }}
+          path: ${{ runner.temp }}/robin-autonomous-lab/
+          if-no-files-found: error
+          retention-days: 30
+  ECHEC_LIVRAISON:
+    needs: collecte
+    if: always() && (needs.collecte.result == 'failure' || needs.collecte.result == 'cancelled')
+    runs-on: ubuntu-latest
+    permissions: {contents: read}
+    steps:
+      - run: |
+          echo '::error title=ECHEC_LIVRAISON::Le créneau de ce run n’a pas été livré. Le rejeu ne clôt pas cet incident.'
+          echo '## ECHEC_LIVRAISON — créneau non livré, run ${{ github.run_id }}' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
