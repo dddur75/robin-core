@@ -111,3 +111,11 @@ Transport utile, lot 2 : tests/helpers extraits du fichier mixte de aa92e7a avan
 Transport utile, lot 3 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
 
 Transport utile, lot 4 : tests/helpers extraits du fichier mixte de aa92e7a avant sa suppression. Corps/décorateurs/assertions identiques par contrôle AST ; imports directs vers les modules conservés. Aucun test restant modifié.
+
+## Phase 3 — suppression des chemins de canari et observatoire
+
+C1b : suppression du CLI historique tools/ et de ses modules predns_orchestration, official_schedule_sources, owner_review_pack, live_executor et harness avec leurs tests. Suppression de l’observatoire hors chronos_control_plane/chronos_r2, de deep_football/market_math et de leurs tests jalon12. Retrait du validateur documentaire abandonné par la spec. Les empreintes de phase 1 ci-dessus restent l’historique de la copie ; les chemins supprimés ne font plus partie du manifeste actif. Les imports/exports correspondants sont débranchés, aucun test restant n’est modifié.
+
+Le contrôle a révélé l’import dynamique live_executor dans workspace_bootstrap. Toute cette préparation du canari est retirée avec provider_network, global_claim_boundary, workspace_bootstrap, live_storage, fixture_mapping, storage et normalization et leurs tests. L’identité système du résolveur (fonction de 6 lignes à l’identique) est conservée dans reprise_collecte : seule dépendance de collecte à provider_network. Les paquets n’importent plus les canaris à leur chargement.
+
+Suppression des configs first-c0/bootstrap/observatoire et des docs de continuité non lus, ainsi que des anciennes configs schedule/established. Restent le mandat de collecte, la génération de relais, les fixtures des tests restants et le reçu historique pour les compteurs.
