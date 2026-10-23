@@ -1,3 +1,5 @@
+Lis d'abord DDDUR.md (à la racine de ce dépôt) : c'est le repère commun de DDDUR (vision, projets, rôles des IA, pouvoirs, façon de parler à David).
+
 <!-- QG:COMMUN:DEBUT -->
 ## Règles communes (source : dépôt qg — ne pas modifier dans les projets)
 
